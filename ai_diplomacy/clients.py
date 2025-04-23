@@ -599,7 +599,14 @@ class OpenAIClient(BaseModelClient):
 
     def __init__(self, model_name: str):
         super().__init__(model_name)
-        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        api_key = os.environ.get("OPENAI_API_KEY")
+        base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url
+        )
+        logger.debug(f"[{self.model_name}] Initialized OpenAI client with base URL: {base_url}")
 
     def generate_response(self, prompt: str) -> str:
         # Updated to new API format
@@ -636,7 +643,15 @@ class ClaudeClient(BaseModelClient):
 
     def __init__(self, model_name: str):
         super().__init__(model_name)
-        self.client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        base_url = os.environ.get("ANTHROPIC_BASE_URL")
+        
+        client_params = {"api_key": api_key}
+        if base_url:
+            client_params["base_url"] = base_url
+            logger.debug(f"[{self.model_name}] Using custom Anthropic base URL: {base_url}")
+            
+        self.client = Anthropic(**client_params)
 
     def generate_response(self, prompt: str) -> str:
         # Updated Claude messages format
@@ -672,7 +687,18 @@ class GeminiClient(BaseModelClient):
 
     def __init__(self, model_name: str):
         super().__init__(model_name)
-        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        api_key = os.environ.get("GEMINI_API_KEY")
+        base_url = os.environ.get("GEMINI_BASE_URL")
+        
+        # Configure Google Gemini client with API key
+        if base_url:
+            # Need to configure genai with custom API endpoint
+            genai.configure(api_key=api_key, transport="rest", client_options={"api_endpoint": base_url})
+            logger.debug(f"[{self.model_name}] Using custom Gemini base URL: {base_url}")
+        else:
+            genai.configure(api_key=api_key)
+            
+        self.client = genai.Client()
 
     def generate_response(self, prompt: str) -> str:
         full_prompt = self.system_prompt + prompt
@@ -701,9 +727,13 @@ class DeepSeekClient(BaseModelClient):
     def __init__(self, model_name: str):
         super().__init__(model_name)
         self.api_key = os.environ.get("DEEPSEEK_API_KEY")
+        self.base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/")
+        
         self.client = DeepSeekOpenAI(
-            api_key=self.api_key, base_url="https://api.deepseek.com/"
+            api_key=self.api_key, 
+            base_url=self.base_url
         )
+        logger.debug(f"[{self.model_name}] Initialized DeepSeek client with base URL: {self.base_url}")
 
     def generate_response(self, prompt: str) -> str:
         try:
@@ -771,13 +801,15 @@ class OpenRouterClient(BaseModelClient):
         self.api_key = os.environ.get("OPENROUTER_API_KEY")
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable is required")
+        
+        base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
             
         self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
+            base_url=base_url,
             api_key=self.api_key
         )
         
-        logger.debug(f"[{self.model_name}] Initialized OpenRouter client")
+        logger.debug(f"[{self.model_name}] Initialized OpenRouter client with base URL: {base_url}")
 
     def generate_response(self, prompt: str) -> str:
         """Generate a response using OpenRouter."""

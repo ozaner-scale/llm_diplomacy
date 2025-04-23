@@ -322,7 +322,12 @@ export class ContentGame extends React.Component {
     }
 
     reloadDeadlineTimer(networkGame) {
-        networkGame.querySchedule()
+        // Add defensive check for undefined networkGame or missing querySchedule method
+        if (!networkGame || typeof networkGame.querySchedule !== 'function') {
+            return Promise.resolve(); // Return a resolved promise if networkGame is invalid
+        }
+        
+        return networkGame.querySchedule()
             .then(dataSchedule => {
                 const schedule = dataSchedule.schedule;
                 const server_current = schedule.current_time;
@@ -1445,11 +1450,26 @@ export class ContentGame extends React.Component {
         this._isMounted = true;
         window.scrollTo(0, 0);
         if (this.props.data.client) {
-            this.reloadDeadlineTimer(this.props.data.client).then(() => {
+            // Store the result in a variable to check if it's a Promise
+            const result = this.reloadDeadlineTimer(this.props.data.client);
+            // Check if result is a Promise-like object before calling .then()
+            if (result && typeof result.then === 'function') {
+                result.then(() => {
+                    if (this._isMounted) {
+                        this.setState({ doneLoading: true });
+                    }
+                }).catch(error => {
+                    console.error('Error in reloadDeadlineTimer:', error);
+                });
+            } else {
+                // Handle case where reloadDeadlineTimer didn't return a Promise
                 if (this._isMounted) {
                     this.setState({ doneLoading: true });
                 }
-            });
+            }
+        } else {
+            // Handle case where client is undefined
+            this.setState({ doneLoading: true });
         }
         this.props.data.displayed = true;
         // Try to prevent scrolling when pressing keys Home and End.
