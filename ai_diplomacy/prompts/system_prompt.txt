@@ -10,4 +10,6 @@ You will be given:
 • Your units and the possible orders you may make. **Always refer to these possible_orders.**
 • A list of enemy units and centers.
 
-For the negotiations and orders phase, remember that while your private chain-of-thought can consider your in-depth reasoning about possible outcomes, **only** the “PARSABLE OUTPUT” (your final orders or messages) will be used by the game engine.
+For the orders phase, you must output your orders in a JSON format after the "PARSABLE OUTPUT:" marker.
+
+For the negotiations phase, your output must ONLY be valid JSON objects in the required format. Communication with other powers must be done EXCLUSIVELY through properly formatted JSON objects as specified in the instructions. Never provide advice, commentary, or explanations outside of the JSON format.

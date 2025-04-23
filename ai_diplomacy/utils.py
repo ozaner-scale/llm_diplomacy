@@ -52,84 +52,83 @@ def get_valid_orders(
     model_error_stats: Dict[str, Dict[str, int]],
     agent_goals: Optional[List[str]] = None,
     agent_relationships: Optional[Dict[str, str]] = None,
+    early_exit: bool = False,
 ) -> List[str]:
     """
     Tries up to 'max_retries' to generate and validate orders.
     If invalid, we append the error feedback to the conversation
     context for the next retry. If still invalid, return fallback.
+    
+    Args:
+        game: The Diplomacy game instance
+        client: The model client to use
+        board_state: Current board state
+        power_name: The power generating orders
+        possible_orders: Dictionary of possible orders
+        game_history: Game history object
+        model_error_stats: Dictionary to track errors
+        agent_goals: Optional agent goals
+        agent_relationships: Optional agent relationships
+        early_exit: If True, exit on order generation errors
     """
 
+    # Set up colorful error formatting
+    RED = "\033[1;31m"
+    YELLOW = "\033[1;33m"
+    CYAN = "\033[1;36m"
+    GREEN = "\033[1;32m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
     # Ask the LLM for orders
-    orders = client.get_orders(
-        game=game,
-        board_state=board_state,
-        power_name=power_name,
-        possible_orders=possible_orders,
-        conversation_text=game_history,
-        model_error_stats=model_error_stats,
-        agent_goals=agent_goals,
-        agent_relationships=agent_relationships,
-    )
-    
-    # Initialize list to track invalid order information
-    invalid_info = []
-    
-    # Validate each order
-    all_valid = True
-    valid_orders = []
-    
-    for move in orders:
-        # Skip empty orders
-        if not move or move.strip() == "":
-            continue
+    try:
+        orders = client.get_orders(
+            game=game,
+            board_state=board_state,
+            power_name=power_name,
+            possible_orders=possible_orders,
+            conversation_text=game_history,
+            model_error_stats=model_error_stats,
+            agent_goals=agent_goals,
+            agent_relationships=agent_relationships,
+        )
+        
+        # Initialize list to track invalid order information
+        invalid_info = []
+        
+        # Validate each order
+        all_valid = True
+        valid_orders = []
+        
+        # Check if the orders were properly generated
+        if not orders:
+            error_msg = f"Failed to generate any valid orders for {power_name}"
+            print(f"\n{RED}{'='*80}{RESET}")
+            print(f"{RED}ORDER GENERATION ERROR{RESET} {YELLOW}[{power_name}]{RESET}: {BOLD}No valid orders{RESET}")
+            print(f"{RED}{'='*80}{RESET}")
+            model_error_stats[power_name]["order_decoding_errors"] += 1
             
-        # Handle special case for WAIVE
-        if move.upper() == "WAIVE":
-            valid_orders.append(move)
-            continue
+            if early_exit:
+                raise RuntimeError(f"Early exit due to order generation error for {power_name}: No valid orders")
             
-        # Example move: "A PAR H" -> unit="A PAR", order_part="H"
-        tokens = move.split(" ", 2)
-        if len(tokens) < 3:
-            invalid_info.append(f"Order '{move}' is malformed; expected 'A PAR H' style.")
-            all_valid = False
-            continue
-            
-        unit = " ".join(tokens[:2])  # e.g. "A PAR"
-        order_part = tokens[2]  # e.g. "H" or "S A MAR"
-
-        # Use the internal game validation method
-        if order_part == "B":
-            validity = 1  # hack because game._valid_order doesn't support 'B'
-        else:
-            try:
-                validity = game._valid_order(
-                    game.powers[power_name], unit, order_part, report=1
-                )
-            except Exception as e:
-                logger.warning(f"Error validating order '{move}': {e}")
-                invalid_info.append(f"Order '{move}' caused an error: {e}")
-                validity = 0
-                all_valid = False
-
-        if validity == 1:
-            valid_orders.append(move)
-        else:
-            invalid_info.append(f"Order '{move}' is invalid for {power_name}")
-            all_valid = False
-    
-    # Log validation results
-    if invalid_info:
-        logger.debug(f"[{power_name}] Invalid orders: {', '.join(invalid_info)}")
-    
-    if all_valid and valid_orders:
-        logger.debug(f"[{power_name}] All orders valid: {valid_orders}")
-        return valid_orders
-    else:
-        logger.debug(f"[{power_name}] Some orders invalid, using fallback.")
-        model_error_stats[power_name]["order_decoding_errors"] += 1
-        fallback = client.fallback_orders(possible_orders)
-        return fallback
+            # Return the fallback orders
+            return client.fallback_orders(possible_orders)
+        
+        # Success! Show a message
+        print(f"{GREEN}ORDERS GENERATED{RESET} {YELLOW}[{power_name}]{RESET}: Generated {len(orders)} valid orders")
+        
+        return orders
+    except Exception as e:
+        error_msg = f"Error during order generation for {power_name}: {str(e)}"
+        print(f"\n{RED}{'='*80}{RESET}")
+        print(f"{RED}ORDER GENERATION EXCEPTION{RESET} {YELLOW}[{power_name}]{RESET}: {str(e)}")
+        print(f"{RED}{'='*80}{RESET}")
+        
+        if early_exit:
+            raise RuntimeError(f"Early exit due to order generation exception for {power_name}: {str(e)}")
+        
+        # Return the fallback orders
+        return client.fallback_orders(possible_orders)
 
 
 def normalize_and_compare_orders(

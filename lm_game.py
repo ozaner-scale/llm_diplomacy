@@ -74,13 +74,51 @@ def parse_arguments():
         action="store_true",
         help="Enable the planning phase for each power to set strategic directives.",
     )
+    parser.add_argument(
+        "--early_exit",
+        action="store_true",
+        help="Exit early if conversation or order generation errors occur."
+    )
+    parser.add_argument(
+        "--fast_test",
+        action="store_true",
+        help="Run in fast test mode - uses minimal settings for quick testing"
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging with more detailed error information"
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_arguments()
+    
+    # Handle fast test mode
+    if args.fast_test:
+        logger.info("Running in FAST TEST mode with minimal settings")
+        args.max_year = 1901
+        args.num_negotiation_rounds = 1
+        args.planning_phase = False
+        if not args.models:
+            args.models = "gpt-3.5-turbo, gpt-3.5-turbo, gpt-3.5-turbo, gpt-3.5-turbo, gpt-3.5-turbo, gpt-3.5-turbo, gpt-3.5-turbo"
+    
     max_year = args.max_year
-
+    
+    # Set up colored logging if verbose mode is enabled
+    if args.verbose:
+        # Configure more detailed logging
+        for handler in logging.root.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                handler.setFormatter(logging.Formatter(
+                    "\033[1;37m%(asctime)s \033[1;33m[%(levelname)s]\033[0m \033[1;34m%(name)s\033[0m - %(message)s",
+                    datefmt="%H:%M:%S"
+                ))
+        logger.setLevel(logging.DEBUG)
+        logging.getLogger("negotiations").setLevel(logging.DEBUG)
+        logging.getLogger("client").setLevel(logging.DEBUG)
+    
     logger.info(
         "Starting a new Diplomacy game for testing with multiple LLMs, now concurrent!"
     )
@@ -196,6 +234,7 @@ def main():
                 game_history,
                 model_error_stats,
                 max_rounds=args.num_negotiation_rounds,
+                early_exit=args.early_exit,
             )
 
         # Gather orders from each power concurrently
@@ -239,6 +278,7 @@ def main():
                     # == Goal 2: Inject Agent State into Order Generation ==
                     agent_goals=agent.goals,
                     agent_relationships=agent.relationships,
+                    early_exit=args.early_exit,
                     # ======================================================
                 )
                 futures[future] = power_name

@@ -210,3 +210,44 @@ if __name__ == '__main__':
 ## License
 
 This project is licensed under the APGLv3 License - see the [LICENSE](LICENSE) file for details
+
+## Debugging Features
+
+The simulation now includes several features to make debugging and testing easier:
+
+### Fast Testing and Early Exit
+
+Run the simulation in fast testing mode with early exit on errors:
+
+```bash
+./run.sh
+```
+
+This will:
+- Use faster LLM settings (gpt-3.5-turbo by default)
+- Stop the program immediately when conversation or order errors occur
+- Display colorful error messages with details about what went wrong
+- Run with verbose logging for more information
+
+### Conversation Testing
+
+To specifically test the conversation module:
+
+```bash
+./test_conversation.sh
+```
+
+This script focuses on testing only the conversation functionality with clear error reporting.
+
+### Command Line Options
+
+New command line options are available:
+
+- `--early_exit`: Exit immediately on conversation or order generation errors
+- `--fast_test`: Run with minimal settings optimized for quick testing
+- `--verbose`: Enable more detailed, colorful logging
+
+Example of a custom test configuration:
+```bash
+python lm_game.py --max_year 1901 --num_negotiation_rounds 2 --early_exit --verbose
+```

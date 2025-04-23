@@ -4,8 +4,9 @@ from json import JSONDecodeError
 import re
 import logging
 import ast
+import traceback
 
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from dotenv import load_dotenv
 
 import anthropic
@@ -378,8 +379,25 @@ class BaseModelClient:
         agent_goals: Optional[List[str]] = None,
         agent_relationships: Optional[Dict[str, str]] = None,
     ) -> str:
+        """
+        Build the prompt for the conversation phase with clear JSON formatting requirements.
+        """
+        # Load conversation instructions with clear JSON requirements
         instructions = load_prompt("conversation_instructions.txt")
+        if not instructions:
+            logger.error("Could not load conversation_instructions.txt! This will cause formatting errors.")
+            # Provide a minimal fallback to avoid complete failure
+            instructions = """
+            YOU MUST RESPOND WITH JSON OBJECTS ONLY! 
+            For global messages: {"message_type": "global", "content": "your message"}
+            For private messages: {"message_type": "private", "recipient": "POWER_NAME", "content": "your message"}
+            No explanations, advice, or text outside of these JSON objects is allowed.
+            """
 
+        # Format the power name in the instructions
+        instructions = instructions.replace("{power_name}", power_name)
+
+        # Build the context with additional emphasis on JSON format
         context = self.build_context_prompt(
             game,
             board_state,
@@ -390,7 +408,28 @@ class BaseModelClient:
             agent_relationships=agent_relationships,
         )
 
-        return context + "\n\n" + instructions
+        # Add a strong reminder about the JSON format
+        json_reminder = """
+CRITICAL REMINDER: Your response MUST consist ONLY of one or more valid JSON objects.
+DO NOT include any text, explanations, or analysis outside of the JSON objects.
+Example JSON format:
+```json
+{
+  "message_type": "global",
+  "content": "Your message here"
+}
+```
+or 
+```json
+{
+  "message_type": "private",
+  "recipient": "ENGLAND",
+  "content": "Your private message here"
+}
+```
+        """
+
+        return context + "\n\n" + instructions + "\n\n" + json_reminder
 
     def get_planning_reply(
         self,
@@ -430,7 +469,7 @@ class BaseModelClient:
         active_powers: Optional[List[str]] = None,
         agent_goals: Optional[List[str]] = None,
         agent_relationships: Optional[Dict[str, str]] = None,
-    ) -> List[Dict[str, str]]:
+    ) -> Tuple[List[Dict[str, str]], Optional[Dict[str, Any]]]:
         """
         Generates a negotiation message, considering agent state.
 
@@ -446,7 +485,9 @@ class BaseModelClient:
             agent_relationships: The agent's relationships.
 
         Returns:
-            List[Dict[str, str]]: Parsed JSON messages from the LLM response.
+            Tuple containing:
+            - List[Dict[str, str]]: Parsed JSON messages from the LLM response
+            - Optional[Dict[str, Any]]: Error details for visualization if an error occurred, None otherwise
         """
 
         # Call build_conversation_prompt and pass agent state
@@ -463,6 +504,7 @@ class BaseModelClient:
 
         logger.debug(f"[{self.model_name}] Conversation prompt for {power_name}:\n{prompt}")
 
+        error_info = None
         try:
             response = self.generate_response(prompt)
             logger.debug(f"[{self.model_name}] Raw LLM response for {power_name}:\n{response}")
@@ -471,25 +513,69 @@ class BaseModelClient:
             # Extract JSON blocks from the response
             json_blocks = []
             
-            # First try to find {{ ... }} blocks (common in Claude responses)
-            double_brace_blocks = re.findall(r'\{\{(.*?)\}\}', response, re.DOTALL)
-            if double_brace_blocks:
-                json_blocks.extend(['{' + block.strip() + '}' for block in double_brace_blocks])
-            else:
-                 # Fallback: try finding JSON within ```json ... ``` blocks, like in get_orders
-                 code_block_match = re.search(r"```json\n(.*?)\n```", response, re.DOTALL)
-                 if code_block_match:
-                     potential_json = code_block_match.group(1).strip()
-                     # Sometimes the LLM might put multiple JSONs in one block
-                     json_blocks = re.findall(r'\{.*?\}', potential_json, re.DOTALL)
-                 else:
-                     # Final fallback: try finding any {...} block
-                     json_blocks = re.findall(r'\{.*?\}', response, re.DOTALL)
+            # Try more patterns to extract JSON
+            patterns_to_try = [
+                # Double braces (Claude style)
+                (r'\{\{(.*?)\}\}', lambda m: '{' + m.strip() + '}'),
+                # JSON code blocks
+                (r'```json\s*(.*?)\s*```', lambda m: m),
+                # JSON blocks with single braces
+                (r'\{[\s\S]*?"message_type"[\s\S]*?\}', lambda m: m),
+                # Any JSON-like structure with message_type
+                (r'\{[\s\S]*?"message_type"[\s\S]*?[,}]', lambda m: m + '}' if not m.endswith('}') else m),
+            ]
+            
+            for pattern, formatter in patterns_to_try:
+                matches = re.findall(pattern, response, re.DOTALL)
+                if matches:
+                    for match in matches:
+                        # Clean up the match
+                        block = formatter(match.strip())
+                        # Add to the blocks to process
+                        json_blocks.append(block)
+                    # If we found matches with this pattern, stop trying others
+                    break
+            
+            # Last resort - try to find anything that looks like a JSON object
+            if not json_blocks:
+                # Look for anything that starts with { and ends with }
+                matches = re.findall(r'\{[\s\S]*?\}', response, re.DOTALL)
+                if matches:
+                    json_blocks.extend(matches)
 
             if not json_blocks:
-                logger.warning(f"[{self.model_name}] No JSON message blocks found in response for {power_name}. Raw response:\n{response}")
-                return []
+                # Enhanced error information
+                error_msg = f"No JSON message blocks found in response for {power_name}"
+                logger.warning(f"[{self.model_name}] {error_msg}. Raw response:\n{response}")
+                
+                # Check if response looks like advice/analysis instead of JSON
+                common_patterns = [
+                    (r'here are some strategic', 'Response contains strategic advice instead of JSON'),
+                    (r'you (can|could|should)', 'Response contains suggestions instead of JSON'),
+                    (r'your goal', 'Response focuses on describing goals instead of JSON'),
+                    (r'consider', 'Response gives considerations instead of JSON'),
+                    (r'option', 'Response discusses options instead of JSON'),
+                ]
+                
+                analysis = "Unable to determine why JSON is missing"
+                for pattern, explanation in common_patterns:
+                    if re.search(pattern, response.lower()):
+                        analysis = explanation
+                        break
+                
+                error_info = {
+                    "error_type": "format_error",
+                    "message": error_msg,
+                    "analysis": analysis,
+                    "raw_response": response,
+                    "model": self.model_name,
+                    "power": power_name,
+                    "phase": game_phase
+                }
+                return [], error_info
 
+            parsing_errors = []
+            validation_errors = []
             for block in json_blocks:
                 try:
                     # Clean the block and ensure it's valid JSON
@@ -502,22 +588,53 @@ class BaseModelClient:
                     if isinstance(parsed_message, dict) and "message_type" in parsed_message and "content" in parsed_message:
                          messages.append(parsed_message)
                     else:
-                         logger.warning(f"[{self.model_name}] Invalid message structure in block for {power_name}: {cleaned_block}")
+                         error_msg = f"Invalid message structure in block for {power_name}"
+                         logger.warning(f"[{self.model_name}] {error_msg}: {cleaned_block}")
+                         validation_errors.append({
+                             "error_type": "validation_error",
+                             "message": error_msg,
+                             "block": cleaned_block
+                         })
                          
-                except json.JSONDecodeError:
-                    logger.warning(f"[{self.model_name}] Failed to decode JSON block for {power_name}. Block content:\n{block}")
+                except json.JSONDecodeError as json_err:
+                    error_msg = f"Failed to decode JSON block for {power_name}"
+                    logger.warning(f"[{self.model_name}] {error_msg}. Block content:\n{block}")
+                    parsing_errors.append({
+                        "error_type": "json_decode_error",
+                        "message": str(json_err),
+                        "block": block
+                    })
                     # Continue to next block if one fails
 
-            if not messages:
-                 logger.warning(f"[{self.model_name}] No valid messages extracted after parsing blocks for {power_name}. Raw response:\n{response}")
+            if not messages and (parsing_errors or validation_errors):
+                # Collect all errors that occurred during parsing
+                error_info = {
+                    "error_type": "message_creation_failed",
+                    "parsing_errors": parsing_errors,
+                    "validation_errors": validation_errors,
+                    "raw_response": response,
+                    "model": self.model_name,
+                    "power": power_name,
+                    "phase": game_phase
+                }
+                logger.warning(f"[{self.model_name}] No valid messages extracted after parsing blocks for {power_name}. Raw response:\n{response}")
 
             logger.debug(f"[{self.model_name}] Validated conversation replies for {power_name}: {messages}")
-            return messages
+            return messages, error_info
             
         except Exception as e:
             # Catch any other exceptions during generation or processing
-            logger.error(f"[{self.model_name}] Error in get_conversation_reply for {power_name}: {e}")
-            return []
+            error_msg = f"Error in get_conversation_reply for {power_name}: {e}"
+            logger.error(f"[{self.model_name}] {error_msg}")
+            error_info = {
+                "error_type": "exception",
+                "message": str(e),
+                "traceback": traceback.format_exc(),
+                "model": self.model_name,
+                "power": power_name,
+                "phase": game_phase
+            }
+            return [], error_info
 
     def get_plan(
         self,

@@ -86,6 +86,8 @@ class Phase:
 @dataclass
 class GameHistory:
     phases: List[Phase] = field(default_factory=list)
+    # Store conversation errors for visualization
+    conversation_errors: Dict[str, List[Dict[str, any]]] = field(default_factory=dict)
 
     def add_phase(self, phase_name: str):
         # Avoid adding duplicate phases
@@ -206,3 +208,30 @@ class GameHistory:
             game_history_str += phases_to_report[-1].plans[power_name] + "\n"
 
         return game_history_str
+
+    def to_dict(self):
+        """
+        Convert the GameHistory to a dictionary representation
+        
+        Returns:
+            Dict containing the game history data
+        """
+        return {
+            "phases": self.phases,
+            "conversation_errors": self.conversation_errors,
+        }
+
+    def add_conversation_errors(self, phase_name: str, errors: Dict[str, List[Dict[str, any]]]):
+        """
+        Add conversation errors for a specific phase
+        
+        Args:
+            phase_name: The name of the phase
+            errors: Dictionary mapping power names to a list of error information
+        """
+        phase_errors = self.conversation_errors.get(phase_name, {})
+        phase_errors.update(errors)
+        self.conversation_errors[phase_name] = phase_errors
+        
+    # Method to get all messages for a power
+    # ... existing code ...
