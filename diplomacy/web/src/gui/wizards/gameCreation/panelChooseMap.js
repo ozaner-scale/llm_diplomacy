@@ -21,7 +21,7 @@ import PropTypes from "prop-types";
 
 export class PanelChooseMap extends React.Component {
     render() {
-        const mapImg = require(`../../../diplomacy/maps/svg/${this.props.params.map.svgName()}.svg`);
+        const mapImg = require(`../../../../../maps/svg/${this.props.params.map.svgName()}.svg`);
         const mapEntries = [];
         let count = 0;
         for (let mapInfo of Maps) {

@@ -1,0 +1,1 @@
+uv run lm_game.py --max_year 1905 --num_negotiation_rounds 3 --early_exit --verbose --models "gpt-4.1-nano, gpt-4.1-nano, gpt-4.1-nano, gpt-4.1-nano, gpt-4.1-nano, gpt-4.1-nano, gpt-4.1-nano"
