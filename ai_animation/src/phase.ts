@@ -3,9 +3,8 @@ import { logger } from "./logger";
 import { updatePhaseDisplay } from "./domElements";
 import { initUnits } from "./units/create";
 import { updateSupplyCenterOwnership, updateLeaderboard, updateMapOwnership } from "./map/state";
-import { updateChatWindows, addToNewsBanner } from "./domElements/chatWindows";
+import { addToNewsBanner } from "./domElements/chatWindows";
 import { createAnimationsForNextPhase } from "./units/animate";
-import { speakSummary } from "./speech";
 import { config } from "./config";
 
 
@@ -135,27 +134,10 @@ export function advanceToNextPhase() {
   if (currentPhase.summary && currentPhase.summary.trim() !== '') {
     // Update the news banner with full summary
     addToNewsBanner(`(${currentPhase.name}) ${currentPhase.summary}`);
-    console.log("Added summary to news banner, preparing to call speakSummary");
-
-    // Speak the summary and advance after
-    speakSummary(currentPhase.summary)
-      .then(() => {
-        console.log("Speech completed successfully");
-        if (gameState.isPlaying) {
-          moveToNextPhase();
-        }
-      })
-      .catch((error) => {
-        console.error("Speech failed with error:", error);
-        if (gameState.isPlaying) {
-          moveToNextPhase();
-        }
-      });
-  } else {
-    console.log("No summary available, skipping speech");
-    // No summary to speak, advance immediately
-    moveToNextPhase();
   }
+
+  // Immediately advance to the next phase (speech removed)
+  moveToNextPhase();
 }
 
 /**
