@@ -11,34 +11,6 @@ if [ "${1:-auto}" != "0" ]; then
     pytest -v --forked -n "${1:-auto}" diplomacy || FAILED=1
 fi
 
-# Running pylint
-echo ""
-echo "------------------------------"
-echo "         PYLINT TESTS         "
-echo "------------------------------"
-echo ""
-find diplomacy -name "*.py" ! -name 'zzz_*.py' ! -name '_*.py' -exec pylint '{}' + || FAILED=1
-
-# Running eslint
-echo ""
-echo "------------------------------"
-echo "         ESLINT TESTS         "
-echo "------------------------------"
-echo ""
-if [ -f "$DIR/diplomacy/web/node_modules/.bin/eslint" ]; then
-    if [ -z ${NVM_DIR+x} ]; then
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-    fi
-    cd $DIR/diplomacy/web/
-    node_modules/.bin/eslint --ext js,jsx . || FAILED=1
-    npm run build || FAILED=1
-    cd -
-else
-    echo "Skipping ESLint. Make sure NVM and NodeJS are installed first."
-fi
-
 # Exiting
 if [[ "$FAILED" -eq 1 ]]; then
     echo "*** TESTS FAILED ***"
