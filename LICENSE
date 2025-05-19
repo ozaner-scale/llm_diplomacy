@@ -1,4 +1,3 @@
-
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -660,3 +659,10 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+------------------------------------------------------------------------------
+
+ACKNOWLEDGEMENTS:
+This project uses components from:
+1. DPjudge (MIT License, Copyright 2017 Manus Hand)
+2. jDip maps (GNU GPL v2, Copyright 2002 Zachary DelProposto) 
