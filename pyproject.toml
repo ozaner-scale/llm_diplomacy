@@ -17,16 +17,10 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "python-dotenv>=1.1.0",
     "pytz>=2025.2",
-    "sphinx>=8.2.3",
-    "sphinx-copybutton>=0.5.2",
-    "sphinx-rtd-theme>=3.0.2",
     "tornado>=6.4.2",
     "tqdm>=4.67.1",
     "ujson>=5.10.0",
 ]
 
 [tool.ruff]
-exclude = [
-    "diplomacy",
-    "docs"
-]
+exclude = ["diplomacy"]

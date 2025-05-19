@@ -19,17 +19,6 @@ echo "------------------------------"
 echo ""
 find diplomacy -name "*.py" ! -name 'zzz_*.py' ! -name '_*.py' -exec pylint '{}' + || FAILED=1
 
-# Running sphinx
-echo ""
-echo "------------------------------"
-echo "         SPHINX TESTS         "
-echo "------------------------------"
-echo ""
-cd $DIR/docs
-make clean || FAILED=1
-make html || FAILED=1
-cd -
-
 # Running eslint
 echo ""
 echo "------------------------------"
