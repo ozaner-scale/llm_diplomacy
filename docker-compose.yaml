@@ -1,14 +1,4 @@
 services:
-  twitch-streamer:
-    build: twitch-streamer
-    env_file: ".env"
-    cap_add:
-      - SYS_ADMIN
-    environment:
-      - DISPLAY=:99
-    ports:
-      - "9222:9222"
-
   diplomacy:
     build: ai_animation
     ports:
