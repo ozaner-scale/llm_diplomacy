@@ -551,7 +551,21 @@ class Game(Jsonable):
             Note that an empty orders set is considered as a defined order as long as it was
             explicitly set by the power controller.
         """
-        return all(power.is_eliminated() or power.does_not_wait() for power in self.powers.values())
+        # Turn can process when every *relevant* power either has "no-wait" set or is eliminated.
+        # If the CD_DUMMIES rule is active we treat uncontrolled (dummy) powers as automatically ready;
+        # otherwise they behave like real players and their wait flag must be cleared manually.
+        for power in self.powers.values():
+            if power.is_eliminated():
+                continue  # eliminated powers never block
+
+            if power.is_dummy() and "CD_DUMMIES" in self.rules:
+                # Rule explicitly says dummy powers shouldn't block adjudication.
+                continue
+
+            if not power.does_not_wait():
+                return False
+
+        return True
 
     def has_power(self, power_name):
         """ Return True if this game has given power name. """
