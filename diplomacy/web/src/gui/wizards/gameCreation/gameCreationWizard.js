@@ -23,6 +23,7 @@ import {PanelChoosePower} from "./panelChoosePower";
 import {PanelChooseSettings} from "./panelChooseSettings";
 import {Maps} from "./mapList";
 import {UTILS} from "../../../diplomacy/utils/utils";
+import { STRINGS } from "../../../diplomacy/utils/strings";
 import './gameCreationWizard.css';
 
 export class GameCreationWizard extends React.Component {
@@ -37,7 +38,18 @@ export class GameCreationWizard extends React.Component {
             registration_password: '',
 
             map: Maps[0],
-            no_press: false
+            // Track selection state for every available judge rule
+            rules: (() => {
+                const obj = {};
+                for (const rule of STRINGS.RULES) {
+                    obj[rule] = false;
+                }
+                // Set default rules
+                obj['POWER_CHOICE'] = true;
+                obj['NO_DEADLINE'] = true;
+                obj['REAL_TIME'] = true;
+                return obj;
+            })()
         };
         this.backward = this.backward.bind(this);
         this.forward = this.forward.bind(this);
@@ -45,20 +57,30 @@ export class GameCreationWizard extends React.Component {
     }
 
     updateParams(params) {
-        this.setState(params);
+        // If deadline is being updated, synchronize NO_DEADLINE rule
+        if (params.hasOwnProperty('deadline')) {
+            const updatedRules = { ...this.state.rules, ...params.rules };
+            if (params.deadline === 0) {
+                updatedRules['NO_DEADLINE'] = true;
+            } else {
+                updatedRules['NO_DEADLINE'] = false;
+            }
+            this.setState({ ...params, rules: updatedRules });
+        } else {
+            this.setState(params);
+        }
     }
 
     goToPanel(panelID) {
         if (panelID < Panels.CHOOSE_MAP)
             this.props.onCancel();
         else if (panelID > Panels.CHOOSE_SETTINGS) {
-            const rules = ['POWER_CHOICE'];
-            if (this.state.no_press)
-                rules.push('NO_PRESS');
-            if (!this.state.deadline) {
-                rules.push('NO_DEADLINE');
-                rules.push('REAL_TIME');
-            }
+            const rules = [];
+            // Add all user-selected rules
+            Object.entries(this.state.rules).forEach(([ruleName, isOn]) => {
+                if (isOn) rules.push(ruleName);
+            });
+
             this.props.onSubmit({
                 game_id: this.state.game_id,
                 map_name: this.state.map.name,

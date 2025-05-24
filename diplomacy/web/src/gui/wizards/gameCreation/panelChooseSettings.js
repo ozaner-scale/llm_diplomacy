@@ -19,6 +19,7 @@ import {FancyBox} from "../../components/fancyBox";
 import PropTypes from "prop-types";
 import {UTILS} from "../../../diplomacy/utils/utils";
 import Octicon, {ArrowLeft} from "@primer/octicons-react";
+import {STRINGS} from "../../../diplomacy/utils/strings";
 
 const DEADLINES = [
     [0, '(no deadline)'],
@@ -32,14 +33,10 @@ const DEADLINES = [
 export class PanelChooseSettings extends React.Component {
     constructor(props) {
         super(props);
-        this.onCheckNoPress = this.onCheckNoPress.bind(this);
         this.onSelectDeadline = this.onSelectDeadline.bind(this);
         this.onSetRegistrationPassword = this.onSetRegistrationPassword.bind(this);
         this.onSetGameID = this.onSetGameID.bind(this);
-    }
-
-    onCheckNoPress(event) {
-        this.props.onUpdateParams({no_press: event.target.checked});
+        this.onToggleRule = this.onToggleRule.bind(this);
     }
 
     onSelectDeadline(event) {
@@ -55,6 +52,13 @@ export class PanelChooseSettings extends React.Component {
         if (!gameID)
             gameID = UTILS.createGameID(this.props.username);
         this.props.onUpdateParams({game_id: gameID});
+    }
+
+    onToggleRule(event) {
+        const { rules } = this.props.params;
+        const ruleName = event.target.name;
+        const updated = { ...rules, [ruleName]: event.target.checked };
+        this.props.onUpdateParams({ rules: updated });
     }
 
     render() {
@@ -93,11 +97,29 @@ export class PanelChooseSettings extends React.Component {
                                        onChange={this.onSetGameID}/>
                             </div>
                         </div>
-                        <div className="custom-control custom-checkbox mb-5">
-                            <input type="checkbox" className="custom-control-input" id="no-press"
-                                   checked={this.props.params.no_press} onChange={this.onCheckNoPress}/>
-                            <label className="custom-control-label" htmlFor="no-press">No messages allowed</label>
-                        </div>
+                        <hr />
+                        <p><strong>Advanced Rules</strong></p>
+                        <p className="text-muted small">Note: Some rules are selected by default. Uncheck to disable them.</p>
+                        {STRINGS.RULES.map((ruleName, idx) => (
+                            <div className="custom-control custom-checkbox mb-2" key={ruleName}>
+                                <input
+                                    type="checkbox"
+                                    className="custom-control-input"
+                                    id={`rule-${idx}`}
+                                    name={ruleName}
+                                    checked={this.props.params.rules[ruleName] || false}
+                                    onChange={this.onToggleRule}
+                                    disabled={ruleName === 'NO_DEADLINE'}/>
+                                <label 
+                                    className="custom-control-label" 
+                                    htmlFor={`rule-${idx}`}
+                                    style={ruleName === 'NO_DEADLINE' ? {opacity: 0.6} : {}}>
+                                    {ruleName}
+                                    {ruleName === 'NO_DEADLINE' && 
+                                        <small className="text-muted ml-2">(controlled by deadline dropdown)</small>}
+                                </label>
+                            </div>
+                        ))}
                     </form>
                 </div>
                 <div className="row">
