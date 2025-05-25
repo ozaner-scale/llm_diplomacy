@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 import re
 
+from storage import storage
 from diplomacy.engine.game import Game
 from diplomacy.engine.power import Power
 from diplomacy.utils.constants import DEFAULT_GAME_RULES
@@ -27,10 +28,6 @@ static_dir.mkdir(exist_ok=True)
 
 templates = Jinja2Templates(directory=str(templates_dir))
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-# In-memory game storage (for single-player, will be replaced with better storage later)
-games: Dict[str, Game] = {}
-game_metadata: Dict[str, Dict[str, Any]] = {}
 
 # Game rules with descriptions
 RULE_DESCRIPTIONS = {
@@ -82,8 +79,9 @@ MAP_INFO = {
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Home page showing list of games."""
+    games = await storage.list_games()
     return templates.TemplateResponse(
-        "index.html", {"request": request, "games": game_metadata}
+        "index.html", {"request": request, "games": games}
     )
 
 
@@ -138,9 +136,9 @@ async def create_game(
     # Start the game by setting it to active
     game.set_status("active")
 
-    # Store game
-    games[game_id] = game
-    game_metadata[game_id] = {
+    # Store game and metadata
+    await storage.save_game(game_id, game)
+    metadata = {
         "id": game_id,
         "name": game_name,
         "map": map_name,
@@ -148,6 +146,7 @@ async def create_game(
         "status": game.status,
         "player_power": player_power if not "SOLITAIRE" in rules else "ALL",
     }
+    await storage.save_metadata(game_id, metadata)
 
     return RedirectResponse(f"/game/{game_id}", status_code=303)
 
@@ -155,17 +154,22 @@ async def create_game(
 @app.get("/game/{game_id}", response_class=HTMLResponse)
 async def view_game(request: Request, game_id: str):
     """View a game."""
-    if game_id not in games:
+    game = await storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    game = games[game_id]
-    player_power = game_metadata[game_id].get("player_power", "ALL")
+    metadata = await storage.load_metadata(game_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Game metadata not found")
+
+    player_power = metadata.get("player_power", "ALL")
 
     # Validate player_power exists
     if player_power != "ALL" and player_power not in game.powers:
         # Fallback to first power if invalid
         player_power = list(game.powers.keys())[0]
-        game_metadata[game_id]["player_power"] = player_power
+        metadata["player_power"] = player_power
+        await storage.save_metadata(game_id, metadata)
 
     # Get map SVG content
     svg_path = (
@@ -227,10 +231,10 @@ async def submit_orders(
     request: Request, game_id: str, power_name: str, orders: str = Form("")
 ):
     """Submit orders for a power."""
-    if game_id not in games:
+    game = await storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    game = games[game_id]
     if power_name not in game.powers:
         raise HTTPException(status_code=404, detail="Power not found")
 
@@ -238,8 +242,14 @@ async def submit_orders(
     order_list = [o.strip() for o in orders.split("\n") if o.strip()]
     game.set_orders(power_name, order_list)
 
+    # Save updated game
+    await storage.save_game(game_id, game)
+
     # Update metadata
-    game_metadata[game_id]["phase"] = game.phase
+    metadata = await storage.load_metadata(game_id)
+    if metadata:
+        metadata["phase"] = game.phase
+        await storage.save_metadata(game_id, metadata)
 
     return RedirectResponse(f"/game/{game_id}", status_code=303)
 
@@ -247,17 +257,22 @@ async def submit_orders(
 @app.post("/game/{game_id}/process")
 async def process_game(request: Request, game_id: str):
     """Process the current phase of the game."""
-    if game_id not in games:
+    game = await storage.load_game(game_id)
+    if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-
-    game = games[game_id]
 
     # Process the game
     game.process()
 
+    # Save updated game
+    await storage.save_game(game_id, game)
+
     # Update metadata
-    game_metadata[game_id]["phase"] = game.phase
-    game_metadata[game_id]["status"] = game.status
+    metadata = await storage.load_metadata(game_id)
+    if metadata:
+        metadata["phase"] = game.phase
+        metadata["status"] = game.status
+        await storage.save_metadata(game_id, metadata)
 
     return RedirectResponse(f"/game/{game_id}", status_code=303)
 
