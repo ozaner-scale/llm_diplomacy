@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+.env.local
+
+# Development
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+*.swp
+.DS_Store
+
+# Project specific
+game_data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# UV/pip
+.uv/
+uv.lock
+pip-log.txt
+pip-delete-this-directory.txt 
