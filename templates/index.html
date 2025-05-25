@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Diplomacy - Games{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold text-gray-800">Your Games</h2>
+            <a href="/game/new" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Create New Game
+            </a>
+        </div>
+        
+        {% if games %}
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {% for game_id, game_info in games.items() %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
+                <h3 class="text-xl font-semibold mb-2">{{ game_info.name }}</h3>
+                <div class="text-sm text-gray-600 space-y-1">
+                    <p>Map: {{ game_info.map }}</p>
+                    <p>Phase: {{ game_info.phase }}</p>
+                    <p>Status: <span class="font-medium">{{ game_info.status }}</span></p>
+                </div>
+                <div class="mt-4">
+                    <a href="/game/{{ game_id }}" 
+                       class="inline-block bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm">
+                        Continue Game
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <p class="text-gray-500 text-lg mb-4">No games yet!</p>
+            <a href="/game/new" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded">
+                Start Your First Game
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

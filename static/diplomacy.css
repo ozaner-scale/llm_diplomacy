@@ -1,0 +1,56 @@
+/* Diplomacy Game Styles */
+
+/* Power colors matching the original game */
+.power-austria, .unitaustria { color: #c48f85; fill: #c48f85; }
+.power-england, .unitengland { color: #8b4789; fill: #8b4789; }
+.power-france, .unitfrance { color: #4169E1; fill: #4169E1; }
+.power-germany, .unitgermany { color: #696969; fill: #696969; }
+.power-italy, .unititaly { color: #228B22; fill: #228B22; }
+.power-russia, .unitrussia { color: #757d91; fill: #757d91; }
+.power-turkey, .unitturkey { color: #b9a61c; fill: #b9a61c; }
+
+/* Map SVG adjustments */
+#game-map svg {
+    background: #f0f0f0;
+}
+
+#game-map svg .water {
+    fill: #c5dfea;
+}
+
+#game-map svg .land {
+    fill: #f5f5dc;
+}
+
+#game-map svg .impassable {
+    fill: #353433;
+}
+
+/* Unit styling in SVG */
+#game-map svg .unit {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#game-map svg .unit:hover {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+}
+
+/* Order arrows */
+#game-map svg .order-arrow {
+    stroke-width: 2;
+    fill: none;
+    marker-end: url(#arrowhead);
+}
+
+/* Supply center dots */
+#game-map svg .supply-center {
+    stroke: #000;
+    stroke-width: 1;
+    fill: #fff;
+}
+
+#game-map svg .supply-center.controlled {
+    fill: currentColor;
+} 

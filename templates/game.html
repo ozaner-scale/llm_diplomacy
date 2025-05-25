@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Diplomacy - {{ game.phase }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* SVG map styling */
+    #game-map svg {
+        width: 100%;
+        height: auto;
+        max-height: 600px;
+    }
+    
+    /* Unit markers */
+    .unit-marker {
+        cursor: pointer;
+    }
+    
+    .unit-marker:hover {
+        stroke-width: 3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="gameData" class="max-w-7xl mx-auto">
+    <!-- Game Header -->
+    <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">{{ game.phase }}</h2>
+                <p class="text-gray-600">Status: {{ game.status }}</p>
+                {% if not is_solitaire %}
+                <p class="text-sm text-gray-500">You are playing as: <span class="font-bold power-{{ player_power.lower() }}">{{ player_power }}</span></p>
+                {% else %}
+                <p class="text-sm text-gray-500">Solitaire Mode - Control all powers</p>
+                {% endif %}
+            </div>
+            <div class="space-x-2">
+                {% if game.status == 'active' %}
+                <form method="POST" action="/game/{{ game_id }}/process" class="inline">
+                    <button type="submit" 
+                            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                        Process Phase
+                    </button>
+                </form>
+                {% endif %}
+                <a href="/" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+                    Back to Games
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Map Visualization -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xl font-semibold mb-4">Map</h3>
+                {% if map_svg %}
+                <div id="game-map" class="border border-gray-300 rounded overflow-hidden">
+                    {{ map_svg | safe }}
+                </div>
+                {% else %}
+                <div class="bg-gray-100 rounded p-8 text-center">
+                    <p class="text-gray-500">Map visualization not available</p>
+                    <p class="text-sm text-gray-400 mt-2">Check the unit positions in the sidebar</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Game Info -->
+        <div class="space-y-4">
+            <!-- Powers Overview -->
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xl font-semibold mb-4">Powers</h3>
+                <div class="space-y-2">
+                    {% for power_name, power in powers.items() %}
+                    <div class="border rounded p-2 {% if power_name == player_power %}ring-2 ring-blue-500{% endif %}">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-semibold power-{{ power_name.lower() }}">{{ power_name }}</h4>
+                            {% if power.is_controlled() %}
+                            <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Player</span>
+                            {% else %}
+                            <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Bot</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-gray-600">Centers: {{ power.centers|length }}</p>
+                        <p class="text-sm text-gray-600">Units: {{ power.units|length }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Current Units -->
+            <div class="bg-white rounded-lg shadow-md p-4 max-h-96 overflow-y-auto">
+                <h3 class="text-xl font-semibold mb-4">All Units</h3>
+                <div class="space-y-2 text-sm">
+                    {% for power_name, power in powers.items() %}
+                        {% if power.units %}
+                        <div>
+                            <h4 class="font-semibold power-{{ power_name.lower() }}">{{ power_name }}</h4>
+                            <ul class="ml-4 space-y-1">
+                                {% for unit in power.units %}
+                                <li class="text-gray-700">{{ unit }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Section -->
+    {% if game.status == 'active' %}
+        {% if phase_type == 'M' %}
+        <div class="mt-4 bg-white rounded-lg shadow-md p-4">
+            <h3 class="text-xl font-semibold mb-4">Submit Orders - {{ game.phase }}</h3>
+            
+            {% if is_solitaire %}
+            <!-- Solitaire mode - show all powers -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for power_name, power in powers.items() %}
+                {% if power.units %}
+                <div class="border rounded p-4">
+                    <h4 class="font-semibold power-{{ power_name.lower() }} mb-2">{{ power_name }}</h4>
+                    <form method="POST" action="/game/{{ game_id }}/orders/{{ power_name }}">
+                        <textarea name="orders" 
+                                  rows="4" 
+                                  class="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                  placeholder="Enter orders, one per line">{{ '\n'.join(power.orders.values()) }}</textarea>
+                        <button type="submit" 
+                                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm">
+                            Submit Orders
+                        </button>
+                    </form>
+                    {% if possible_orders and possible_orders.get(power_name) %}
+                    <details class="mt-2">
+                        <summary class="cursor-pointer text-sm text-gray-600">Possible Orders</summary>
+                        <ul class="text-xs text-gray-500 ml-4 mt-1 max-h-32 overflow-y-auto">
+                            {% for unit, orders in possible_orders[power_name].items() %}
+                            <li><strong>{{ unit }}:</strong> {{ orders|join(', ') }}</li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            
+            {% else %}
+            <!-- Regular mode - only show player's power -->
+            {% if powers[player_power].units %}
+            <div class="max-w-2xl">
+                <div class="border rounded p-4">
+                    <h4 class="font-semibold power-{{ player_power.lower() }} mb-2">{{ player_power }} Orders</h4>
+                    <form method="POST" action="/game/{{ game_id }}/orders/{{ player_power }}">
+                        <textarea name="orders" 
+                                  rows="6" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded"
+                                  placeholder="Enter your orders, one per line">{{ '\n'.join(powers[player_power].orders.values()) }}</textarea>
+                        <button type="submit" 
+                                class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                            Submit Orders
+                        </button>
+                    </form>
+                    {% if possible_orders and possible_orders.get(player_power) %}
+                    <details class="mt-4">
+                        <summary class="cursor-pointer text-sm text-gray-600">Possible Orders for Your Units</summary>
+                        <ul class="text-sm text-gray-600 ml-4 mt-2 space-y-1">
+                            {% for unit, orders in possible_orders[player_power].items() %}
+                            <li>
+                                <strong>{{ unit }}:</strong>
+                                <span class="text-xs text-gray-500">{{ orders|join(', ') }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-4 p-4 bg-blue-50 rounded">
+                    <p class="text-sm text-blue-800">
+                        <strong>Note:</strong> Other powers are controlled by bots. They will hold all units and won't submit any other orders.
+                    </p>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-4 bg-yellow-50 rounded">
+                <p class="text-sm text-yellow-800">You have no units to give orders to in this phase.</p>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% elif phase_type == 'R' %}
+        <div class="mt-4 bg-white rounded-lg shadow-md p-4">
+            <h3 class="text-xl font-semibold mb-4">Retreat Phase - {{ game.phase }}</h3>
+            <p class="text-gray-600">Retreat orders will be handled here...</p>
+        </div>
+        {% elif phase_type == 'A' %}
+        <div class="mt-4 bg-white rounded-lg shadow-md p-4">
+            <h3 class="text-xl font-semibold mb-4">Build/Disband Phase - {{ game.phase }}</h3>
+            <p class="text-gray-600">Build and disband orders will be handled here...</p>
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="mt-4 bg-gray-100 rounded-lg p-4">
+            <p class="text-gray-600">Game is not active. Current status: {{ game.status }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Results Section -->
+    {% if game.result %}
+    <div class="mt-4 bg-white rounded-lg shadow-md p-4">
+        <h3 class="text-xl font-semibold mb-4">Phase Results</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for unit, results in game.result.items() %}
+            {% if results %}
+            <div class="text-sm">
+                <span class="font-medium">{{ unit }}:</span>
+                <span class="text-gray-600">{{ results|join(', ') }}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('gameData', () => ({
+        mapData: JSON.parse('{{ map_data | tojson | safe }}'),
+        
+        init() {
+            console.log('Game data loaded:', this.mapData);
+            // Add any map interaction logic here
+        }
+    }));
+});
+</script>
+{% endblock %} 

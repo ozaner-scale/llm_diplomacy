@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Diplomacy{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX for interactivity -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Alpine.js for client-side reactivity -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <!-- Custom Diplomacy styles -->
+    <link rel="stylesheet" href="/static/diplomacy.css">
+    
+    <style>
+        /* Custom styles for Diplomacy */
+        .power-austria { color: #c48f85; }
+        .power-england { color: #8b4789; }
+        .power-france { color: #4169E1; }
+        .power-germany { color: #696969; }
+        .power-italy { color: #228B22; }
+        .power-russia { color: #757d91; }
+        .power-turkey { color: #b9a61c; }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">
+                <a href="/" class="hover:text-gray-300">Diplomacy</a>
+            </h1>
+            <div class="space-x-4">
+                <a href="/" class="hover:text-gray-300">Games</a>
+                <a href="/game/new" class="hover:text-gray-300">New Game</a>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            <p>&copy; 2024 Diplomacy Web - Single Player Edition</p>
+        </div>
+    </footer>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html> 
